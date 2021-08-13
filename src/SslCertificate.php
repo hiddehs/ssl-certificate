@@ -32,6 +32,7 @@ class SslCertificate
         $fingerprintSha256 = openssl_x509_fingerprint($certificatePem, 'sha256');
 
         return new self(
+            $certificatePem,
             $certificateFields,
             $fingerprint,
             $fingerprintSha256
@@ -41,6 +42,7 @@ class SslCertificate
     public static function createFromArray(array $properties): self
     {
            return new self(
+               $properties['rawCertificatePEM'],
                $properties['rawCertificateFields'],
                $properties['fingerprint'],
                $properties['fingerprintSha256'],
@@ -49,12 +51,18 @@ class SslCertificate
     }
 
     public function __construct(
+        private string $rawCertificatePEM = '',
         protected array $rawCertificateFields,
         protected string $fingerprint = '',
         private string $fingerprintSha256 = '',
         private string $remoteAddress = '',
     ) {
         //
+    }
+
+    public function getRawCertificatePEM(): string
+    {
+        return $this->rawCertificatePEM;
     }
 
     public function getRawCertificateFields(): array

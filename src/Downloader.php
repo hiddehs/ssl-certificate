@@ -107,12 +107,15 @@ class Downloader
         $fullCertificateChain = array_merge([$peerCertificate], $peerCertificateChain);
 
         $certificates = array_map(function ($certificate) use ($remoteAddress) {
-            $certificateFields = openssl_x509_parse($certificate);
+            openssl_x509_export($certificate, $certificatePem);
 
+            $certificateFields = openssl_x509_parse($certificate);
+            
             $fingerprint = openssl_x509_fingerprint($certificate);
             $fingerprintSha256 = openssl_x509_fingerprint($certificate, 'sha256');
 
             return new SslCertificate(
+                $certificatePem,
                 $certificateFields,
                 $fingerprint,
                 $fingerprintSha256,
