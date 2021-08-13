@@ -51,7 +51,7 @@ class SslCertificate
     }
 
     public function __construct(
-        private string $rawCertificatePEM = '',
+        protected string $rawCertificatePEM,
         protected array $rawCertificateFields,
         protected string $fingerprint = '',
         private string $fingerprintSha256 = '',
