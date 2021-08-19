@@ -27,6 +27,10 @@ class Downloader
 
     protected int $followLocation = 1;
 
+    protected string $localCert = null;
+
+    protected string $localPrivateKey = null;
+
     public function usingPort(int $port): self
     {
         $this->port = $port;
@@ -80,6 +84,20 @@ class Downloader
     {
         $this->followLocation = $followLocation;
 
+        return $this;
+    }
+
+    public function setLocalCertificate(string $localCertPath, string $localPrivateKeyPath): self{
+        if(!file_exists($localCertPath)){
+            throw new \Exception("Local Certificate file not found, check \$localCertPath");
+        }
+        if(!file_exists($localPrivateKeyPath)){
+            throw new \Exception("Local Private Key file not found, check \$localPrivateKeyPath");
+        }
+
+        $this->localCert = $localCertPath;
+        $this->localPrivateKey = $localPrivateKeyPath;
+        
         return $this;
     }
 
@@ -161,6 +179,10 @@ class Downloader
             'verify_peer_name' => $this->verifyPeerName,
             'follow_location' => $this->followLocation,
         ];
+        if (isset($this->localCert)) {
+            $sslOptions['local_cert'] => $this->localCert;
+            $sslOptions['local_pk'] => $this->localPrivateKey;
+        }
 
         $streamContext = stream_context_create([
             'socket' => $this->socketContextOptions,
