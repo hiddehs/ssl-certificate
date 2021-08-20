@@ -5,234 +5,241 @@ namespace Spatie\SslCertificate;
 use Spatie\SslCertificate\Exceptions\CouldNotDownloadCertificate;
 use Spatie\SslCertificate\Exceptions\InvalidIpAddress;
 
-class Downloader
-{
-    protected int $port = 443;
+class Downloader {
+	protected int $port = 443;
 
-    protected ?string $ipAddress = null;
+	protected ?string $ipAddress = null;
 
-    protected bool $usingIpAddress = false;
+	protected bool $usingIpAddress = false;
 
-    protected int $timeout = 30;
+	protected int $timeout = 30;
 
-    protected bool $enableSni = true;
+	protected bool $enableSni = true;
 
-    protected bool $capturePeerChain = false;
+	protected bool $capturePeerChain = false;
 
-    protected array $socketContextOptions = [];
+	protected array $socketContextOptions = [];
 
-    protected bool $verifyPeer = true;
+	protected bool $verifyPeer = true;
 
-    protected bool $verifyPeerName = true;
+	protected bool $verifyPeerName = true;
 
-    protected int $followLocation = 1;
+	protected int $followLocation = 1;
 
-    protected string $localCert = null;
+	protected ?string $localCert = null;
 
-    protected string $localPrivateKey = null;
+	protected ?string $localPrivateKey = null;
 
-    public function usingPort(int $port): self
-    {
-        $this->port = $port;
+	protected ?string $caFile = null;
 
-        return $this;
-    }
+	public function usingPort( int $port ): self {
+		$this->port = $port;
 
-    public function usingSni(bool $sni): self
-    {
-        $this->enableSni = $sni;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function usingSni( bool $sni ): self {
+		$this->enableSni = $sni;
 
-    public function withSocketContextOptions(array $socketContextOptions): self
-    {
-        $this->socketContextOptions = $socketContextOptions;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function withSocketContextOptions( array $socketContextOptions ): self {
+		$this->socketContextOptions = $socketContextOptions;
 
-    public function withFullChain(bool $fullChain): self
-    {
-        $this->capturePeerChain = $fullChain;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function withFullChain( bool $fullChain ): self {
+		$this->capturePeerChain = $fullChain;
 
-    public function withVerifyPeer(bool $verifyPeer): self
-    {
-        $this->verifyPeer = $verifyPeer;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function withVerifyPeer( bool $verifyPeer ): self {
+		$this->verifyPeer = $verifyPeer;
 
-    public function withVerifyPeerName(bool $verifyPeerName): self
-    {
-        $this->verifyPeerName = $verifyPeerName;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function withVerifyPeerName( bool $verifyPeerName ): self {
+		$this->verifyPeerName = $verifyPeerName;
 
-    public function setTimeout(int $timeOutInSeconds): self
-    {
-        $this->timeout = $timeOutInSeconds;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function setTimeout( int $timeOutInSeconds ): self {
+		$this->timeout = $timeOutInSeconds;
 
-    public function setFollowLocation(int $followLocation): self
-    {
-        $this->followLocation = $followLocation;
+		return $this;
+	}
 
-        return $this;
-    }
+	public function setFollowLocation( int $followLocation ): self {
+		$this->followLocation = $followLocation;
 
-    public function setLocalCertificate(string $localCertPath, string $localPrivateKeyPath): self{
-        if(!file_exists($localCertPath)){
-            throw new \Exception("Local Certificate file not found, check \$localCertPath");
-        }
-        if(!file_exists($localPrivateKeyPath)){
-            throw new \Exception("Local Private Key file not found, check \$localPrivateKeyPath");
-        }
+		return $this;
+	}
 
-        $this->localCert = $localCertPath;
-        $this->localPrivateKey = $localPrivateKeyPath;
-        
-        return $this;
-    }
+	public function withCertificateAuthorityFile( string $caFile ) {
+		if ( ! file_exists( $caFile ) ) {
+			throw new \Exception( "Local Certificate file not found, check \$localCertPath" );
+		}
+		$this->caFile = $caFile;
+	}
 
-    public function fromIpAddress(string $ipAddress): self
-    {
-        if (! filter_var($ipAddress, FILTER_VALIDATE_IP)) {
-            throw InvalidIpAddress::couldNotValidate($ipAddress);
-        }
+	public function withLocalCertificate( string $localCertPath ): self {
+		if ( ! file_exists( $localCertPath ) ) {
+			throw new \Exception( "Local Certificate file not found, check \$localCertPath" );
+		}
 
-        $this->ipAddress = $ipAddress;
-        $this->usingIpAddress = true;
+		$this->localCert = $localCertPath;
 
-        return $this;
-    }
+		return $this;
+	}
 
-    public function getCertificates(string $hostName): array
-    {
-        $response = $this->fetchCertificates($hostName);
-        $remoteAddress = $response['remoteAddress'];
+	public function withLocalPrivateKey( string $localPrivateKeyPath ): self {
+		if ( ! file_exists( $localPrivateKeyPath ) ) {
+			throw new \Exception( "Local Certificate file not found, check \$localPrivateKey" );
+		}
 
-        $peerCertificate = $response['options']['ssl']['peer_certificate'];
+		$this->localPrivateKey = $localPrivateKeyPath;
 
-        $peerCertificateChain = $response['options']['ssl']['peer_certificate_chain'] ?? [];
+		return $this;
+	}
 
-        $fullCertificateChain = array_merge([$peerCertificate], $peerCertificateChain);
+	public function fromIpAddress( string $ipAddress ): self {
+		if ( ! filter_var( $ipAddress, FILTER_VALIDATE_IP ) ) {
+			throw InvalidIpAddress::couldNotValidate( $ipAddress );
+		}
 
-        $certificates = array_map(function ($certificate) use ($remoteAddress) {
-            openssl_x509_export($certificate, $certificatePem);
+		$this->ipAddress      = $ipAddress;
+		$this->usingIpAddress = true;
 
-            $certificateFields = openssl_x509_parse($certificate);
-            
-            $fingerprint = openssl_x509_fingerprint($certificate);
-            $fingerprintSha256 = openssl_x509_fingerprint($certificate, 'sha256');
+		return $this;
+	}
 
-            return new SslCertificate(
-                $certificatePem,
-                $certificateFields,
-                $fingerprint,
-                $fingerprintSha256,
-                $remoteAddress
-            );
-        }, $fullCertificateChain);
+	public function getCertificates( string $hostName ): array {
+		$response      = $this->fetchCertificates( $hostName );
+		$remoteAddress = $response['remoteAddress'];
 
-        return array_unique($certificates);
-    }
+		$peerCertificate = $response['options']['ssl']['peer_certificate'];
 
-    public function forHost(string $hostName): SslCertificate | bool
-    {
-        $url = new Url($hostName);
+		$peerCertificateChain = $response['options']['ssl']['peer_certificate_chain'] ?? [];
 
-        $this->port = $url->getPort();
+		$fullCertificateChain = array_merge( [ $peerCertificate ], $peerCertificateChain );
 
-        $hostName = $url->getHostName();
+		$certificates = array_map( function ( $certificate ) use ( $remoteAddress ) {
+			openssl_x509_export( $certificate, $certificatePem );
 
-        $certificates = $this->getCertificates($hostName);
+			$certificateFields = openssl_x509_parse( $certificate );
 
-        return $certificates[0] ?? false;
-    }
+			$fingerprint       = openssl_x509_fingerprint( $certificate );
+			$fingerprintSha256 = openssl_x509_fingerprint( $certificate, 'sha256' );
 
-    public static function downloadCertificateFromUrl(string $url, int $timeout = 30, bool $verifyCertificate = true): SslCertificate | bool
-    {
-        return (new static())
-            ->setTimeout($timeout)
-            ->withVerifyPeer($verifyCertificate)
-            ->withVerifyPeerName($verifyCertificate)
-            ->forHost($url);
-    }
+			return new SslCertificate(
+				$certificatePem,
+				$certificateFields,
+				$fingerprint,
+				$fingerprintSha256,
+				$remoteAddress
+			);
+		}, $fullCertificateChain );
 
-    protected function fetchCertificates(string $hostName): array
-    {
-        $hostName = (new Url($hostName))->getHostName();
+		return array_unique( $certificates );
+	}
 
-        $sslOptions = [
-            'capture_peer_cert' => true,
-            'capture_peer_cert_chain' => $this->capturePeerChain,
-            'SNI_enabled' => $this->enableSni,
-            'peer_name' => $hostName,
-            'verify_peer' => $this->verifyPeer,
-            'verify_peer_name' => $this->verifyPeerName,
-            'follow_location' => $this->followLocation,
-        ];
-        if (isset($this->localCert)) {
-            $sslOptions['local_cert'] => $this->localCert;
-            $sslOptions['local_pk'] => $this->localPrivateKey;
-        }
+	public function forHost( string $hostName ): SslCertificate|bool {
+		$url = new Url( $hostName );
 
-        $streamContext = stream_context_create([
-            'socket' => $this->socketContextOptions,
-            'ssl' => $sslOptions,
-        ]);
+		$this->port = $url->getPort();
 
-        $connectTo = ($this->usingIpAddress)
-            ? $this->ipAddress
-            : $hostName;
+		$hostName = $url->getHostName();
 
-        $client = @stream_socket_client(
-            "ssl://{$connectTo}:{$this->port}",
-            $errorNumber,
-            $errorDescription,
-            $this->timeout,
-            STREAM_CLIENT_CONNECT,
-            $streamContext
-        );
+		$certificates = $this->getCertificates( $hostName );
 
-        if (! empty($errorDescription)) {
-            throw $this->buildFailureException($connectTo, $errorDescription);
-        }
+		return $certificates[0] ?? false;
+	}
 
-        if (! $client) {
-            $clientErrorMessage = ($this->usingIpAddress)
-                ? "Could not connect to `{$connectTo}` or it does not have a certificate matching `${hostName}`."
-                : "Could not connect to `{$connectTo}`.";
+	public static function downloadCertificateFromUrl( string $url, int $timeout = 30, bool $verifyCertificate = true ): SslCertificate|bool {
+		return ( new static() )
+			->setTimeout( $timeout )
+			->withVerifyPeer( $verifyCertificate )
+			->withVerifyPeerName( $verifyCertificate )
+			->forHost( $url );
+	}
 
-            throw CouldNotDownloadCertificate::unknownError($hostName, $clientErrorMessage);
-        }
+	protected function fetchCertificates( string $hostName ): array {
+		$hostName = ( new Url( $hostName ) )->getHostName();
 
-        $response = stream_context_get_params($client);
+		$sslOptions = [
+			'capture_peer_cert'       => true,
+			'capture_peer_cert_chain' => $this->capturePeerChain,
+			'SNI_enabled'             => $this->enableSni,
+			'peer_name'               => $hostName,
+			'verify_peer'             => $this->verifyPeer,
+			'verify_peer_name'        => $this->verifyPeerName,
+			'follow_location'         => $this->followLocation,
+		];
 
-        $response['remoteAddress'] = stream_socket_get_name($client, true);
+		if ( $this->caFile ) {
+			$sslOptions['cafile'] = $this->caFile;
+		}
 
-        fclose($client);
+		if ( $this->localCert ) {
+			$sslOptions['local_cert'] = $this->localCert;
+		}
+		if ( $this->localPrivateKey ) {
+			$sslOptions['local_pk'] = $this->localPrivateKey;
+		}
 
-        return $response;
-    }
+		$streamContext = stream_context_create( [
+			'socket' => $this->socketContextOptions,
+			'ssl'    => $sslOptions,
+		] );
 
-    protected function buildFailureException(string $hostName, string $errorDescription): CouldNotDownloadCertificate
-    {
-        if (str_contains($errorDescription, 'getaddrinfo failed')) {
-            return CouldNotDownloadCertificate::hostDoesNotExist($hostName);
-        }
 
-        if (str_contains($errorDescription, 'error:14090086')) {
-            return CouldNotDownloadCertificate::noCertificateInstalled($hostName);
-        }
+		$connectTo = ( $this->usingIpAddress )
+			? $this->ipAddress
+			: $hostName;
 
-        return CouldNotDownloadCertificate::unknownError($hostName, $errorDescription);
-    }
+		$client = stream_socket_client(
+			"ssl://{$connectTo}:{$this->port}",
+			$errorNumber,
+			$errorDescription,
+			$this->timeout,
+			STREAM_CLIENT_CONNECT,
+			$streamContext
+		);
+		if ( ! empty( $errorDescription ) ) {
+			throw $this->buildFailureException( $connectTo, $errorDescription );
+		}
+
+		if ( ! $client ) {
+			$clientErrorMessage = ( $this->usingIpAddress )
+				? "Could not connect to `{$connectTo}` or it does not have a certificate matching `${hostName}`."
+				: "Could not connect to `{$connectTo}`.";
+
+			throw CouldNotDownloadCertificate::unknownError( $hostName, $clientErrorMessage );
+		}
+
+		$response = stream_context_get_params( $client );
+
+		$response['remoteAddress'] = stream_socket_get_name( $client, true );
+
+		fclose( $client );
+
+		return $response;
+	}
+
+	protected function buildFailureException( string $hostName, string $errorDescription ): CouldNotDownloadCertificate {
+		if ( str_contains( $errorDescription, 'getaddrinfo failed' ) ) {
+			return CouldNotDownloadCertificate::hostDoesNotExist( $hostName );
+		}
+
+		if ( str_contains( $errorDescription, 'error:14090086' ) ) {
+			return CouldNotDownloadCertificate::noCertificateInstalled( $hostName );
+		}
+
+		return CouldNotDownloadCertificate::unknownError( $hostName, $errorDescription );
+	}
 }
